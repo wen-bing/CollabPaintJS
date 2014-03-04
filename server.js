@@ -5,6 +5,8 @@ var io = require('socket.io');
 var port = process.argv[2] || 8888;
 var server = require('http').createServer(app);
 var socket = io.listen(server);
+socket.set('transports', ['websocket']);
+socket.set('browser client cache', false);
 
 // setup static files directory
 app.use(express.static(__dirname + '/public'));
