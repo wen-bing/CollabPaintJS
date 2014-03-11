@@ -15,22 +15,26 @@ app.use(express.static(__dirname + '/public'));
 server.listen(port);
 
 // state
-var buffer = [];
-var count = 0;
+var buffer = {};
+var count = {};
 
 
-socket.on('connection', function(client) {
-	
-	count++;
-
-    // each time a new person connects, send them the old stuff
-	client.emit('message', {
-		buffer: buffer,
-		count: count
+socket.of('/drawing').on('connection', function(client) {
+	console.log("client connected");
+	client.on('join', function(data){
+		var room = data.room;
+		if(count[room] == undefined){
+			count[room]=0;
+		}
+		count[room]++;
+		console.log("user joined: " + room);
+		if(buffer[room] == undefined){
+			buffer[room] = [];
+		}
+		client.join(room);
+		client.room = room;
+		client.broadcast.to(client.room).emit('message', {count: count, sessionId: client.sessionId})
 	});
-
-    // send a welcome
-	client.broadcast.emit('message', {count: count, sessionId: client.sessionId})
 			
 	// message
 	client.on('paint', function(data) {
@@ -39,12 +43,12 @@ socket.on('connection', function(client) {
 			circle: data,
 			session_id: data.sessionId
 		}
+		var roomBuffer = buffer[client.room];
+		roomBuffer.push(msg)
 
-		buffer.push(msg)
+		if (roomBuffer.length > 1024) roomBuffer.shift();
 
-		if (buffer.length > 1024) buffer.shift();
-
-		client.broadcast.emit('paint', msg);
+		client.broadcast.to(client.room).emit('paint', msg);
 
 	});
 
@@ -53,13 +57,26 @@ socket.on('connection', function(client) {
     });
 
     client.on('clear', function() {
-        buffer = [];
-        client.broadcast.emit('clear');
+        buffer[client.room] = [];
+        client.broadcast.to(client.room).emit('clear');
+    });
+
+    client.on('leave', function(){
+    	leaveHandler(client);
     });
 	
 	client.on('disconnect', function(){
-		count--;
-        client.broadcast.emit('message', {count: count, sessionId: client.sessionId});
+		leaveHandler(client);
     });
+
+    function leaveHandler(client){
+    	count[client.room]--;
+        client.broadcast.to(client.room).emit('message', {count: count, sessionId: client.sessionId});
+        client.leave(client.room);
+        if(count[client.room] == 0) {
+			delete count[client.room];
+			delete buffer[client.room];
+		}	
+    }
     
 });

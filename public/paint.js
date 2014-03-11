@@ -3,7 +3,8 @@
 	var last = [];
     var ctx, touchdown, socket, i, color, size, width, height;
 
-	socket = new io.connect();
+	socket = new io.connect("http://192.168.1.42:8888/drawing");
+	
     socket.on('paint', paint);
     socket.on('message', message);
     socket.on('reset', reset);
@@ -16,7 +17,8 @@
 		, $color = document.getElementById('color')
 		, $clear = document.getElementById('clear')
 		, $game = document.getElementById('game')
-		, $count = document.getElementById('count');
+		, $count = document.getElementById('count')
+		, $rooms = document.getElementById('rooms');
 	
 	// globals
 	ctx = $canvas.getContext('2d');
@@ -31,6 +33,15 @@
 	$canvas.onmousemove = function(e) {
 		move(e);	
 	};
+
+	var roomId = $rooms.options[$rooms.selectedIndex].value;
+	socket.emit('join', {'room': roomId});
+
+	$rooms.addEventListener('change', function(e){
+		var roomId = $rooms.options[$rooms.selectedIndex].value;
+		socket.emit("leave");
+		socket.emit("join", {"room": roomId});
+	}, false);
 
 	$size.addEventListener('change', function(e) {
 		size = $size.options[$size.selectedIndex].value
